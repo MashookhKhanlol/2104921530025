@@ -62,6 +62,30 @@ const express = require('express');
 const axios = require('axios');
 const app = express();
 const PORT = 3000;
+const WINDON_SIZE = 10;
+const windowState = [];
+
+const sources ={
+    p: 'http://20.244.56.144/evaluation-service/primes',
+    f: 'http://20.244.56.144/evaluation-service/fibo',
+    e: 'http://20.244.56.144/evaluation-service/even',
+    r: 'http://20.244.56.144/evaluation-service/rand',
+}
+
+function getUniqueRecentNumbers(prevState , newNumbers){
+    const my_nums = [...prevState , ...newNumbers]
+    const seen = new Set()
+    const unique = []
+
+    for(let i = my_nums.length-1 ; i>=0 ;i--){
+        if(!seen.has(my_nums[i])){
+            unique.unshift(my_nums[i])
+            seen.add(my_nums[i])
+        }
+    }
+
+    return unique.slice(-WINDON_SIZE);
+}
 
 app.get("/", (req,res)=>{
     console.log("server started")
