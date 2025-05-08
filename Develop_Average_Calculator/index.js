@@ -65,12 +65,15 @@ const PORT = 3000;
 const WINDON_SIZE = 10;
 const windowState = [];
 
-const sources ={
+const SOURCES ={
     p: 'http://20.244.56.144/evaluation-service/primes',
     f: 'http://20.244.56.144/evaluation-service/fibo',
     e: 'http://20.244.56.144/evaluation-service/even',
     r: 'http://20.244.56.144/evaluation-service/rand',
 }
+
+const BEARER_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJNYXBDbGFpbXMiOnsiZXhwIjoxNzQ2Njg2NDU3LCJpYXQiOjE3NDY2ODYxNTcsImlzcyI6IkFmZm9yZG1lZCIsImp0aSI6ImFjYjFiZDM4LWNhY2ItNDQwYy04MGU2LTIwNzViODE2MzhiNCIsInN1YiI6Im1hc2hvb2toa2hhbjc4NjJAZ21haWwuY29tIn0sImVtYWlsIjoibWFzaG9va2hraGFuNzg2MkBnbWFpbC5jb20iLCJuYW1lIjoibWFzaG9va2ggYWhtZWQga2hhbiIsInJvbGxObyI6IjIxMDQ5MjE1MzAwMjUiLCJhY2Nlc3NDb2RlIjoiYmFxaFdjIiwiY2xpZW50SUQiOiJhY2IxYmQzOC1jYWNiLTQ0MGMtODBlNi0yMDc1YjgxNjM4YjQiLCJjbGllbnRTZWNyZXQiOiJDUFJLSnhCSmdWcEJWVVBFIn0.L2ezvqpxxIM-cwb2BjlHbuMK92z2kM1IxieaLmv1adw'
+
 
 function getUniqueRecentNumbers(prevState , newNumbers){
     const my_nums = [...prevState , ...newNumbers]
@@ -93,6 +96,43 @@ function calculateAverage(numbers){
     return parseFloat((sum/numbers.length).toFixed(2));
 }
 
+app.get('/numbers/:type', async (req, res) => {
+    const { type } = req.params;
+    const apiUrl = SOURCES[type];
+  
+    if (!apiUrl) {
+      return res.status(400).json({ error: 'Invalid number type' });
+    }
+  
+    const prevWindow = [...windowState];
+  
+    let responseNumbers = [];
+  
+    try {
+        const source = await axios.get(apiUrl, {
+          timeout: 500,
+          headers: {
+            Authorization: `Bearer ${BEARER_TOKEN}`,
+          },
+        });
+        responseNumbers = source.data.numbers || [];
+      } catch (error) {
+        console.error('API call failed:', error.message);
+      }
+  
+    
+    const newWindow = getUniqueRecentNumbers(prevWindow, responseNumbers);
+    windowState.length = 0;
+    windowState.push(...newWindow);
+  
+    res.json({
+      windowPrevState: prevWindow,
+      windowCurrState: newWindow,
+      numbers: responseNumbers,
+      avg: calculateAverage(newWindow),
+    });
+  });
+
 app.get("/", (req,res)=>{
     console.log("server started")
     res.send("App is running")
@@ -103,8 +143,3 @@ app.listen(PORT , ()=>{
 })
 
 
-// {
-// 	"token_type": "Bearer",
-// 	"access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJNYXBDbGFpbXMiOnsiZXhwIjoxNzQ2Njg0NjcwLCJpYXQiOjE3NDY2ODQzNzAsImlzcyI6IkFmZm9yZG1lZCIsImp0aSI6ImFjYjFiZDM4LWNhY2ItNDQwYy04MGU2LTIwNzViODE2MzhiNCIsInN1YiI6Im1hc2hvb2toa2hhbjc4NjJAZ21haWwuY29tIn0sImVtYWlsIjoibWFzaG9va2hraGFuNzg2MkBnbWFpbC5jb20iLCJuYW1lIjoibWFzaG9va2ggYWhtZWQga2hhbiIsInJvbGxObyI6IjIxMDQ5MjE1MzAwMjUiLCJhY2Nlc3NDb2RlIjoiYmFxaFdjIiwiY2xpZW50SUQiOiJhY2IxYmQzOC1jYWNiLTQ0MGMtODBlNi0yMDc1YjgxNjM4YjQiLCJjbGllbnRTZWNyZXQiOiJDUFJLSnhCSmdWcEJWVVBFIn0._cmhPq5aETaRPfrjbefs8BMmK8k4evnfTs_tKzxozxA",
-// 	"expires_in": 1746684670
-// }
