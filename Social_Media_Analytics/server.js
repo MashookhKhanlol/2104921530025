@@ -1,31 +1,35 @@
-const express = require("express");
-const mongoose = require("mongoose");
-const dotenv = require("dotenv");
-const cors = require("cors");
-
-const authRoutes = require("./routes/auth");
-const userRoutes = require("./routes/users");
-const productRoutes = require("./routes/products");
-const orderRoutes = require("./routes/orders");
-const dashboardRoutes = require("./routes/dashboard");
-
-dotenv.config();
+const express = require('express');
+const axios = require('axios');
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+const PORT = 3000;
 
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
+const BASE_URL = 'http://20.244.56.144/evaluation-service';
 
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/products", productRoutes);
-app.use("/api/orders", orderRoutes);
-app.use("/api/dashboard", dashboardRoutes);
-
-app.listen(5000, () => {
-  console.log("Server running on port 5000");
-});
+app.get('/users', async (req, res) => {
+    try {
+      const usersRes = await axios.get(`${BASE_URL}/users`);
+      const users = usersRes.data.users;
+  
+      const commentCountByUser = {};
+      await Promise.all(Object.keys(users).map(async (userId) => {
+        const postsRes = await axios.get(`${BASE_URL}/users/${userId}/posts`);
+        const posts = postsRes.data.posts;
+        let totalComments = 0;
+        await Promise.all(posts.map(async (post) => {
+          const commentsRes = await axios.get(`${BASE_URL}/posts/${post.id}/comments`);
+          totalComments += commentsRes.data.comments.length;
+        }));
+        commentCountByUser[userId] = totalComments;
+      }));
+  
+      const topUsers = Object.entries(commentCountByUser)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([userId]) => ({ id: userId, name: users[userId] }));
+  
+      res.json(topUsers);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to fetch top users' });
+    }
+  });
